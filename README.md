@@ -2,18 +2,15 @@
 
 [Subscription based VPNs aren't as secure as most people think!](https://www.networkworld.com/article/3340342/that-vpn-may-not-be-as-secure-as-you-think.html) The good news is that making your own is easy, and can be cheaper than subscriptions anyway.
 
-The best security you can reasonably do (while still using the internet as usual)
-is to host your own VPN. This is a much a better option than paying for a VPN.
-
 We will use wireguard as a VPN tunneling protocol for its wide support, easy setup, and good performance.
 
-# Reequirements
+# Requirements
 
-#### A DNS name
+#### 1. A DNS name
 
 a large number ".xyz" like "1236581.xyz" is only $1 a year from namecheap, so there's really no excuse. If you need inspiration, a date can be easy to remember, like d-day for example: "06061944.xyz" (although that one is already taken). TLDs with .tk and .ml, for example are free (although these countries require you to regularly use them, and may have some other odd requirements so you get what you pay for). No traffic goes through your DNS provider, so use whomever you want.
 
-#### Basic knowledge on SSH, linux
+#### 2. Basic knowledge on SSH, linux
 
 If you know how to run `sudo apt install` via `ssh` you are fine.
 
