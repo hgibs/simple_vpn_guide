@@ -1,0 +1,134 @@
+---
+# This installs a wireguard server, it is helpful to create a DNS entry
+# for the server's public IP address, but I leave that as an exercise to
+# the reader.
+
+# This assumes a debian/ubuntu server, swapping apt for yum or whatever
+# your linux distribution uses should be all the things you are required
+# to change.
+
+- name: Configure management
+  hosts: remote_vpn_servers
+  tasks:
+    - name: apt upgrade packages
+      ansible.builtin.apt:
+        upgrade: yes
+        update_cache: true
+      become: true
+    - name: install common tools
+      become: true
+      ansible.builtin.apt:
+        name:
+          - zsh
+          - zsh-doc
+          - curl
+          - git
+          - byobu # if you want
+          - lsb-release
+          - locate
+          - qrencode
+        state: latest
+        update_cache: true
+    - name: "create {{ management_username }}"
+      become: true
+      ansible.builtin.user:
+        name: "{{ management_username }}"
+        state: present
+        shell: /bin/zsh
+        password_lock: yes
+        system: no
+        createhome: yes
+    - name: Set authorized key
+      become: true
+      ansible.posix.authorized_key:
+        user: "{{ management_username }}"
+        state: present
+        key: "{{ lookup('file', management_ssh_pubkey_path) }}"
+        path: "/home/{{ management_username }}/.ssh/authorized_keys"
+    - name: Add sudo privileges
+      become: true
+      ansible.builtin.copy:
+        dest: "/etc/sudoers.d/20-{{ management_username }}"
+        content: "{{ management_username }} ALL=(ALL) NOPASSWD:ALL"
+        validate: 'visudo -cf %s'
+
+- name: install wireguard utility
+  hosts: remote_vpn_servers
+  tasks:
+    - name: install required packages
+      ansible.builtin.apt:
+        name:
+          - wireguard
+        state: latest
+        update_cache: true
+      become: true
+
+- name: configure wireugard
+  hosts: remote_vpn_servers
+  vars:
+    server_privkey: "{{ lookup('file', '~/.wireguard/serv_priv.key') }}"
+  tasks:
+    - name: enable IPv4 forwarding in sysctl
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        state: present
+        sysctl_set: yes
+        reload: yes
+      become: true
+    - name: enable IPv6 forwarding in sysctl
+      ansible.posix.sysctl:
+        name: net.ipv6.conf.all.forwarding
+        value: '1'
+        state: present
+        sysctl_set: yes
+        reload: yes
+      become: true
+    - name: Overrule RA forwarding behaviour
+      ansible.posix.sysctl:
+        name: net.ipv6.conf.eth0.accept_ra
+        value: '2'
+        state: present
+        sysctl_set: yes
+        reload: yes
+      become: true
+    - name: Template server config file to /etc/wireguard/wg0.conf
+      ansible.builtin.template:
+        src: artifacts/server_wg0.conf.j2
+        dest: /etc/wireguard/wg0.conf
+        owner: root
+        group: root
+        mode: '0600'
+      become: true
+    - name: Create directory, if neccessary
+      ansible.builtin.file:
+        path: "/home/{{ management_username }}"
+        state: directory
+        mode: '0744'
+        owner: "{{ management_username }}"
+      become: true
+    - name: Clone the simple admin tool
+      ansible.builtin.git:
+        repo: https://github.com/hgibs/simple-wireguard-admin.git
+        dest: "/home/{{ management_username }}/simple-wireguard-admin"
+        single_branch: yes
+        version: master
+      become: true
+    - name: ensure {{ management_username }} retains ownership
+      ansible.builtin.file:
+        path: "/home/{{ management_username }}"
+        state: directory
+        mode: '0744'
+        owner: "{{ management_username }}"
+        recurse: true
+      become: true
+    - name: Enable wireguard on boot
+      ansible.builtin.systemd:
+        enabled: true
+        name: "wg-quick@wg0"
+      become: true
+      register: wg_quick_result
+    - name: Reboot if required
+      ansible.builtin.reboot:
+      when: wg_quick_result.changed
+      become: true

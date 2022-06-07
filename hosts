@@ -1,0 +1,11 @@
+---
+vpn_servers:
+  children:
+    remote_vpn_servers:
+      hosts:
+        vpn:
+          ansible_host: vpn.example.com
+      vars:
+        ansible_ssh_user: ansible
+        management_username: SOME_USERNAME
+        management_ssh_pubkey_path:  /Users/username/.ssh/onlykey_ed25519_ECC5.pub
